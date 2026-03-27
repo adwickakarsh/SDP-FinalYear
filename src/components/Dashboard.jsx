@@ -52,35 +52,23 @@ const Dashboard = ({ patientId }) => {
     fetchInitialData();
 
     // 2. Listen for live FSR data coming from the ESP32
-    const subscription = supabase
-      .channel(`public:sensor_readings:patient_id=eq.${patientId}`)
-      .on('postgres_changes', { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'sensor_readings',
-          filter: `patient_id=eq.${patientId}`
-        }, 
-        (payload) => {
-          setIsConnected(true);
-          const newReading = payload.new;
-          
-          // Update the live charts
-          setLiveReadingsCount((prev) => prev + 1);
-          setSensorDataStream((current) => {
-            const updated = [...current, newReading];
-            return updated.length > 20 ? updated.slice(updated.length - 20) : updated;
-          });
-
-          // Calculate and update dynamic posture
-          const detectedPosture = determinePosture(newReading.chest, newReading.hips, newReading.left_shoulder, newReading.right_shoulder);
-          setCurrentPosture(detectedPosture);
-          
-          setPostureHistory((prev) => ({
-            ...prev,
-            [detectedPosture]: prev[detectedPosture] + 1
-          }));
-      })
-      .subscribe();
+    // From your Dashboard.jsx
+const subscription = supabase
+  .channel(`public:sensor_readings:patient_id=eq.${patientId}`)
+  .on('postgres_changes', { 
+      event: 'INSERT', 
+      schema: 'public', 
+      table: 'sensor_readings',
+      filter: `patient_id=eq.${patientId}`
+    }, 
+    (payload) => {
+      // THIS RUNS INSTANTLY WHEN THE ESP32 SENDS DATA
+      const newReading = payload.new;
+      
+      // Updates the Line Chart
+      setSensorDataStream((current) => [...current, newReading]);
+  })
+  .subscribe();
 
     return () => {
       supabase.removeChannel(subscription);
