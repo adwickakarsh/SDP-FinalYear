@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router'; 
 import { supabase } from '../supabaseClient';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Clock, Trophy, RefreshCw, BarChart2, Star, Target, CheckCircle, AlertTriangle, ArrowLeft, Activity } from 'lucide-react';
+import { Clock, Trophy, RefreshCw, BarChart2, Star, Target, CheckCircle, AlertTriangle, ArrowLeft, Activity, BrainCircuit } from 'lucide-react';
 
 const Dashboard = ({ patientId }) => {
   const navigate = useNavigate();
@@ -12,7 +12,14 @@ const Dashboard = ({ patientId }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [liveReadingsCount, setLiveReadingsCount] = useState(0);
   const [sensorDataStream, setSensorDataStream] = useState([]); // For the Line Chart
-  const [currentPosture, setCurrentPosture] = useState('Supine');
+  
+  // --- LIVE AI STATE (Replaces Dummy Text & Heuristics) ---
+  const [aiData, setAiData] = useState({
+    posture: "Initializing ML...",
+    status: "Analyzing",
+    lastUpdated: ""
+  });
+  
   const [postureHistory, setPostureHistory] = useState({
     'Right Lateral': 0,
     'Left Lateral': 0,
@@ -20,75 +27,95 @@ const Dashboard = ({ patientId }) => {
     'Supine': 0
   });
 
-  // --- TEMPORARY HEURISTIC ALGORITHM ---
-  // This temporarily replaces your Python ML script so the dashboard looks alive.
-  // It guesses posture based on which FSR is being pressed the hardest.
-  const determinePosture = (chest, hips, left_shoulder, right_shoulder) => {
-    if (left_shoulder > right_shoulder + 500 && left_shoulder > chest) return 'Left Lateral';
-    if (right_shoulder > left_shoulder + 500 && right_shoulder > chest) return 'Right Lateral';
-    if (chest > 2000 && hips > 2000) return 'Prone';
-    return 'Supine'; // Default resting state
-  };
-
-  // --- SUPABASE REAL-TIME CONNECTION ---
+  // --- SUPABASE REAL-TIME CONNECTIONS ---
   useEffect(() => {
-    // 1. Fetch the last 20 readings on initial load
+    // 1. Fetch initial data to populate charts on load
     const fetchInitialData = async () => {
-      const { data } = await supabase
+      // Get historical sensor voltages
+      const { data: sensorData } = await supabase
         .from('sensor_readings')
         .select('*')
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false })
         .limit(20);
       
-      if (data && data.length > 0) {
-        setSensorDataStream(data.reverse());
-        // Calculate initial posture from the very last reading
-        const latest = data[data.length - 1];
-        setCurrentPosture(determinePosture(latest.chest, latest.hips, latest.left_shoulder, latest.right_shoulder));
+      if (sensorData) setSensorDataStream(sensorData.reverse());
+
+      // Get the latest AI Prediction from the patients table
+      const { data: patientData } = await supabase
+        .from('patients')
+        .select('posture, status, updated_at')
+        .eq('patient_id', patientId)
+        .single();
+
+      if (patientData) {
+        setAiData({
+          posture: patientData.posture || 'Unknown',
+          status: patientData.status || 'Normal',
+          lastUpdated: new Date(patientData.updated_at).toLocaleTimeString()
+        });
+        setIsConnected(true);
       }
     };
 
     fetchInitialData();
 
-    // 2. Listen for live FSR data coming from the ESP32
-    // From your Dashboard.jsx
-const subscription = supabase
-  .channel(`public:sensor_readings:patient_id=eq.${patientId}`)
-  .on('postgres_changes', { 
-      event: 'INSERT', 
-      schema: 'public', 
-      table: 'sensor_readings',
-      filter: `patient_id=eq.${patientId}`
-    }, 
-    (payload) => {
-      // THIS RUNS INSTANTLY WHEN THE ESP32 SENDS DATA
-      const newReading = payload.new;
-      
-      // Updates the Line Chart
-      setSensorDataStream((current) => [...current, newReading]);
-  })
-  .subscribe();
+    // 2. LISTEN TO RAW HARDWARE: ESP32 Voltage Stream
+    const sensorSubscription = supabase
+      .channel(`sensor_readings_${patientId}`)
+      .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'sensor_readings',
+          filter: `patient_id=eq.${patientId}`
+        }, 
+        (payload) => {
+          setSensorDataStream((current) => [...current.slice(-19), payload.new]);
+          setLiveReadingsCount(prev => prev + 1);
+      })
+      .subscribe();
+
+    // 3. LISTEN TO AI BRAIN: Python ML Predictions
+    const aiSubscription = supabase
+      .channel(`ai_predictions_${patientId}`)
+      .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'patients',
+          filter: `patient_id=eq.${patientId}` 
+        }, 
+        (payload) => {
+          const newPosture = payload.new.posture;
+          
+          setAiData({
+            posture: newPosture,
+            status: payload.new.status,
+            lastUpdated: new Date().toLocaleTimeString()
+          });
+
+          // Update the Pie Chart History based on actual AI decisions
+          setPostureHistory(prev => ({
+            ...prev,
+            [newPosture]: (prev[newPosture] || 0) + 1
+          }));
+        }
+      )
+      .subscribe();
 
     return () => {
-      supabase.removeChannel(subscription);
+      supabase.removeChannel(sensorSubscription);
+      supabase.removeChannel(aiSubscription);
     };
   }, [patientId]);
 
-  const onLogout = () => {
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('patientId');
-    navigate('/auth');
-  };
-
   // Dynamically format the data for the Pie Chart based on real-time history
-  const totalReadings = Object.values(postureHistory).reduce((a, b) => a + b, 0) || 1; // Prevent divide by zero
+  const totalReadings = Object.values(postureHistory).reduce((a, b) => a + b, 0) || 1;
   const dynamicPieData = [
     { name: 'Right Lateral', value: Math.round((postureHistory['Right Lateral'] / totalReadings) * 100), color: '#f59e0b' },
     { name: 'Left Lateral', value: Math.round((postureHistory['Left Lateral'] / totalReadings) * 100), color: '#10b981' },
     { name: 'Prone', value: Math.round((postureHistory['Prone'] / totalReadings) * 100), color: '#ef4444' },
     { name: 'Supine', value: Math.round((postureHistory['Supine'] / totalReadings) * 100), color: '#6366f1' },
-  ].filter(item => item.value > 0); // Only show postures that have actually occurred
+  ].filter(item => item.value > 0);
 
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-[#0B1120] text-slate-300 p-4 md:p-8 font-sans">
@@ -115,7 +142,7 @@ const subscription = supabase
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    Sensor Live
+                    AI Engine Active
                   </span>
                 )}
               </h1>
@@ -128,12 +155,12 @@ const subscription = supabase
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-[#111827] border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
             <div className="flex justify-between items-start text-sm text-slate-400">
-              <span>CURRENT STATE</span>
-              <Activity size={16} className={isConnected ? "text-emerald-400 animate-pulse" : "text-slate-500"} />
+              <span>CURRENT AI STATE</span>
+              <BrainCircuit size={16} className={isConnected ? "text-emerald-400 animate-pulse" : "text-slate-500"} />
             </div>
             <div className="mt-2">
-              <span className="text-2xl font-bold text-white">{currentPosture}</span>
-              <p className="text-xs text-slate-500 mt-1">Live heuristic detection</p>
+              <span className="text-2xl font-bold text-white">{aiData.posture}</span>
+              <p className="text-xs text-slate-500 mt-1">Driven by ML Model</p>
             </div>
           </div>
           
@@ -152,23 +179,25 @@ const subscription = supabase
 
           <div className="bg-[#111827] border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
             <div className="flex justify-between items-start text-sm text-slate-400">
-              <span>POSTURE CHANGES</span>
-              <RefreshCw size={16} className="text-blue-400" />
+              <span>RELIEF STATUS</span>
+              <Activity size={16} className={aiData.status === 'Warning' ? "text-red-400" : "text-emerald-400"} />
             </div>
             <div className="mt-2">
-              <span className="text-2xl font-bold text-white">Live</span>
-              <p className="text-xs text-slate-500 mt-1">Awaiting ML integration</p>
+              <span className={`text-2xl font-bold ${aiData.status === 'Warning' ? 'text-red-500 animate-pulse' : 'text-emerald-500'}`}>
+                {aiData.status}
+              </span>
+              <p className="text-xs text-slate-500 mt-1">Bed sore risk level</p>
             </div>
           </div>
 
           <div className="bg-[#111827] border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
             <div className="flex justify-between items-start text-sm text-slate-400">
               <span>LIVE READINGS</span>
-              <BarChart2 size={16} className="text-emerald-400" />
+              <BarChart2 size={16} className="text-blue-400" />
             </div>
             <div className="mt-2">
               <span className="text-2xl font-bold text-white">{liveReadingsCount}</span>
-              <p className="text-xs text-slate-500 mt-1">data points captured</p>
+              <p className="text-xs text-slate-500 mt-1">Data points processed</p>
             </div>
           </div>
         </div>
@@ -176,9 +205,9 @@ const subscription = supabase
         {/* Middle Row: Line Chart (Raw Data) & Pie Chart (Calculated Data) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Live FSR Voltage Chart (Takes up 2 columns) */}
+          {/* Live FSR Voltage Chart */}
           <div className="bg-[#111827] border border-slate-800 p-6 rounded-xl lg:col-span-2">
-            <h3 className="text-xs font-semibold text-slate-400 tracking-wider mb-4">LIVE SENSOR TELEMETRY (VOLTAGE)</h3>
+            <h3 className="text-xs font-semibold text-slate-400 tracking-wider mb-4">ESP32 SENSOR TELEMETRY (RAW VOLTAGE)</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={sensorDataStream}>
@@ -203,7 +232,7 @@ const subscription = supabase
 
           {/* Dynamic Posture Pie Chart */}
           <div className="bg-[#111827] border border-slate-800 p-6 rounded-xl">
-            <h3 className="text-xs font-semibold text-slate-400 tracking-wider mb-4">DYNAMIC BREAKDOWN</h3>
+            <h3 className="text-xs font-semibold text-slate-400 tracking-wider mb-4">ML POSTURE BREAKDOWN</h3>
             <div className="h-48">
               {dynamicPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -229,7 +258,7 @@ const subscription = supabase
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-slate-500 text-sm">
-                  Waiting for sensor data...
+                  Waiting for ML data...
                 </div>
               )}
             </div>
@@ -245,42 +274,65 @@ const subscription = supabase
               ))}
             </div>
           </div>
-
         </div>
 
-        {/* AI Recommendations Section */}
+        {/* BOTTOM ROW: Live AI Engine Decisions (Replaces the Dummy Text) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-[#1a1515] border border-red-900/50 p-6 rounded-xl">
-            <div className="flex items-center mb-4">
-              <span className="text-2xl mr-3">🛏️</span>
-              <h3 className="text-lg font-bold text-white">Right Lateral (Right Side)</h3>
+          
+          <div className="bg-[#111c18] border border-emerald-900/50 p-6 rounded-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <BrainCircuit size={100} />
             </div>
-            <p className="text-sm text-slate-400 mb-6">
-              Sleeping on your right side is a common posture. However, it can present specific challenges for certain bodily functions.
+            <div className="flex items-center mb-4">
+              <Target className="text-emerald-500 mr-3" />
+              <h3 className="text-lg font-bold text-white tracking-wide">AI PREDICTION CORE</h3>
+            </div>
+            <p className="text-sm text-slate-400 mb-6 relative z-10">
+              The Machine Learning model is analyzing the live FSR matrix and has confidently determined the patient's current alignment.
             </p>
-            <div className="space-y-3">
-              <div className="bg-red-950/40 border border-red-900/50 p-3 rounded flex items-start">
-                <AlertTriangle size={16} className="text-red-400 mr-2 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-red-200">Can exacerbate acid reflux due to stomach acid flowing back into the esophagus.</p>
-              </div>
+            <div className="bg-[#0B1120] border border-slate-800 p-6 rounded-lg text-center shadow-inner">
+              <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Live Output</p>
+              <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+                {aiData.posture}
+              </h2>
+            </div>
+            <div className="mt-4 text-right text-xs text-slate-500 font-mono">
+              Last Synced: {aiData.lastUpdated}
             </div>
           </div>
 
-          <div className="bg-[#111c18] border border-green-900/50 p-6 rounded-xl">
-            <div className="flex items-center mb-4">
-              <CheckCircle className="text-emerald-500 mr-3" />
-              <h3 className="text-lg font-bold text-white">Left Lateral (Left Side)</h3>
+          <div className={`p-6 rounded-xl border transition-all duration-500 relative overflow-hidden ${
+            aiData.status === 'Warning' 
+              ? 'bg-[#1a1515] border-red-900/50 shadow-[0_0_15px_rgba(220,38,38,0.15)]' 
+              : 'bg-[#111827] border-slate-800'
+          }`}>
+             <div className="absolute top-0 right-0 p-4 opacity-10">
+              {aiData.status === 'Warning' ? <AlertTriangle size={100} /> : <CheckCircle size={100} />}
             </div>
-            <p className="text-sm text-slate-400 mb-6">
-              Transitioning to your left side is highly recommended. It offers distinct digestive advantages.
+            <div className="flex items-center mb-4">
+              {aiData.status === 'Warning' ? (
+                <AlertTriangle className="text-red-500 mr-3 animate-pulse" />
+              ) : (
+                <CheckCircle className="text-blue-500 mr-3" />
+              )}
+              <h3 className="text-lg font-bold text-white tracking-wide">CLINICAL RISK ASSESSMENT</h3>
+            </div>
+            <p className="text-sm text-slate-400 mb-6 relative z-10">
+              Based on the duration and pressure distribution of the current posture, the system evaluates the risk of pressure ulcer formation.
             </p>
-            <div className="space-y-3">
-              <div className="bg-emerald-950/40 border border-emerald-900/50 p-3 rounded flex items-start">
-                <CheckCircle size={16} className="text-emerald-400 mr-2 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-emerald-200">Aids digestion by allowing gravity to help food move through the digestive tract.</p>
-              </div>
+            <div className="bg-[#0B1120] border border-slate-800 p-6 rounded-lg text-center shadow-inner">
+               <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">System Status</p>
+               <h2 className={`text-3xl font-black tracking-wider ${
+                  aiData.status === 'Warning' ? 'text-red-500 animate-pulse' : 'text-emerald-500'
+               }`}>
+                 {aiData.status.toUpperCase()}
+               </h2>
+            </div>
+             <div className="mt-4 text-right text-xs text-slate-500 font-mono">
+              Automated Monitor Active
             </div>
           </div>
+
         </div>
 
       </div>
