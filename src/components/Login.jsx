@@ -1,6 +1,6 @@
 // src/components/Login.jsx
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient'; // Import your database connection
+import { supabase } from '../supabaseClient'; 
 
 const Login = ({ onLogin }) => {
   const [patientId, setPatientId] = useState('');
@@ -14,18 +14,16 @@ const Login = ({ onLogin }) => {
     setError('');
 
     try {
-      // Ask Supabase to find a patient with this exact ID and PIN
       const { data, error } = await supabase
         .from('patients')
         .select('*')
         .eq('patient_id', patientId)
         .eq('pin', pin)
-        .single(); // We only expect one exact match
+        .single(); 
 
       if (error || !data) {
         setError('Invalid Patient ID or PIN');
       } else {
-        // Success! Log the user in and pass the ID to the dashboard
         onLogin(data.patient_id);
       }
     } catch (err) {
@@ -36,38 +34,53 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-slate-700">
-        <h2 className="text-2xl font-bold text-white mb-6 text-center">Patient Portal Login</h2>
+    // LIGHT BLUE BACKGROUND
+    <div className="min-h-screen bg-[#B4CDDB] flex items-center justify-center p-4">
+      
+      {/* SKIN-WHITE LOGIN CARD */}
+      <div className="bg-[#FDF7F0] p-8 rounded-2xl shadow-2xl shadow-[#1A5A55]/10 w-full max-w-md border border-[#1A5A55]/20">
         
-        {error && <div className="bg-red-500/20 text-red-400 p-3 rounded mb-4 text-sm text-center">{error}</div>}
+        {/* DEEP GREEN TEXT */}
+        <h2 className="text-2xl font-bold text-[#1A5A55] mb-6 text-center">Patient Portal Login</h2>
         
-        <form onSubmit={handleLogin} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 text-red-600 border border-red-200 p-3 rounded-lg mb-4 text-sm text-center font-medium">
+            {error}
+          </div>
+        )}
+        
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label className="block text-slate-400 mb-1 text-sm">Patient ID</label>
+            <label className="block text-[#1A5A55]/80 mb-1.5 text-sm font-semibold tracking-wide">
+              Patient ID
+            </label>
             <input 
               type="text" 
-              className="w-full bg-slate-900 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-white border border-[#1A5A55]/20 rounded-lg p-3 text-[#1A5A55] placeholder:text-[#1A5A55]/40 focus:outline-none focus:border-[#1A5A55] focus:ring-1 focus:ring-[#1A5A55] transition-all"
               placeholder="e.g., PT-1024"
               value={patientId}
-              onChange={(e) => setPatientId(e.target.value.toUpperCase())} // Auto-capitalize
+              onChange={(e) => setPatientId(e.target.value.toUpperCase())} 
             />
           </div>
           <div>
-            <label className="block text-slate-400 mb-1 text-sm">4-Digit PIN</label>
+            <label className="block text-[#1A5A55]/80 mb-1.5 text-sm font-semibold tracking-wide">
+              4-Digit PIN
+            </label>
             <input 
               type="password" 
               maxLength="4"
-              className="w-full bg-slate-900 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-white border border-[#1A5A55]/20 rounded-lg p-3 text-[#1A5A55] placeholder:text-[#1A5A55]/40 focus:outline-none focus:border-[#1A5A55] focus:ring-1 focus:ring-[#1A5A55] transition-all"
               placeholder="****"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
             />
           </div>
+          
+          {/* DEEP GREEN BUTTON WITH SKIN-WHITE TEXT */}
           <button 
             type="submit" 
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-bold py-3 px-4 rounded transition-colors flex justify-center items-center"
+            className="w-full mt-2 bg-[#1A5A55] hover:bg-[#1A5A55]/90 disabled:bg-[#1A5A55]/60 text-[#FDF7F0] font-bold py-3.5 px-4 rounded-lg transition-all flex justify-center items-center shadow-lg shadow-[#1A5A55]/20"
           >
             {isLoading ? 'Verifying...' : 'Access Live Data'}
           </button>

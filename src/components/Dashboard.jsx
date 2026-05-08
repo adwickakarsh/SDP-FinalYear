@@ -31,7 +31,6 @@ const Dashboard = ({ patientId }) => {
   useEffect(() => {
     // 1. Fetch initial data to populate charts on load
     const fetchInitialData = async () => {
-      // Get historical sensor voltages
       const { data: sensorData } = await supabase
         .from('sensor_readings')
         .select('*')
@@ -41,7 +40,6 @@ const Dashboard = ({ patientId }) => {
       
       if (sensorData) setSensorDataStream(sensorData.reverse());
 
-      // Get the latest AI Prediction from the patients table
       const { data: patientData } = await supabase
         .from('patients')
         .select('posture, status, updated_at')
@@ -93,7 +91,6 @@ const Dashboard = ({ patientId }) => {
             lastUpdated: new Date().toLocaleTimeString()
           });
 
-          // Update the Pie Chart History based on actual AI decisions
           setPostureHistory(prev => ({
             ...prev,
             [newPosture]: (prev[newPosture] || 0) + 1
@@ -108,7 +105,6 @@ const Dashboard = ({ patientId }) => {
     };
   }, [patientId]);
 
-  // Dynamically format the data for the Pie Chart based on real-time history
   const totalReadings = Object.values(postureHistory).reduce((a, b) => a + b, 0) || 1;
   const dynamicPieData = [
     { name: 'Right Lateral', value: Math.round((postureHistory['Right Lateral'] / totalReadings) * 100), color: '#f59e0b' },
@@ -118,26 +114,27 @@ const Dashboard = ({ patientId }) => {
   ].filter(item => item.value > 0);
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] bg-[#0B1120] text-slate-300 p-4 md:p-8 font-sans">
+    // LIGHT BLUE BACKGROUND
+    <div className="min-h-[calc(100vh-5rem)] bg-[#B4CDDB] text-[#1A5A55] p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
         
-        {/* Header */}
-        <div className="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
+        {/* Header - SKIN WHITE */}
+        <div className="flex justify-between items-center bg-[#FDF7F0] p-4 rounded-xl border border-[#1A5A55]/20 shadow-sm">
           <div className="flex items-center space-x-4">
             <button 
               onClick={() => navigate(-1)}
-              className="p-2 bg-slate-900/50 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-all border border-slate-700/50 flex items-center justify-center group"
+              className="p-2 bg-white hover:bg-[#B4CDDB]/30 rounded-lg text-[#1A5A55]/70 hover:text-[#1A5A55] transition-all border border-[#1A5A55]/20 flex items-center justify-center group"
             >
               <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-[#1A5A55] flex items-center gap-3">
                 Live Monitoring
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-900/30 text-blue-400 border border-blue-800/50">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1A5A55]/10 text-[#1A5A55] border border-[#1A5A55]/20">
                   ID: {patientId}
                 </span>
                 {isConnected && (
-                  <span className="flex items-center space-x-1 text-xs text-emerald-400 bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-800/30">
+                  <span className="flex items-center space-x-1 text-xs text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
                     <span className="relative flex h-2 w-2 mr-1">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -146,58 +143,58 @@ const Dashboard = ({ patientId }) => {
                   </span>
                 )}
               </h1>
-              <p className="text-slate-400 text-sm mt-0.5">Real-time telemetry and posture analysis</p>
+              <p className="text-[#1A5A55]/70 text-sm mt-0.5 font-medium">Real-time telemetry and posture analysis</p>
             </div>
           </div>
         </div>
 
         {/* Top Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#111827] border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
-            <div className="flex justify-between items-start text-sm text-slate-400">
+          <div className="bg-[#FDF7F0] border border-[#1A5A55]/20 shadow-sm p-4 rounded-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start text-sm font-semibold text-[#1A5A55]/70">
               <span>CURRENT AI STATE</span>
-              <BrainCircuit size={16} className={isConnected ? "text-emerald-400 animate-pulse" : "text-slate-500"} />
+              <BrainCircuit size={16} className={isConnected ? "text-emerald-500 animate-pulse" : "text-[#1A5A55]/40"} />
             </div>
             <div className="mt-2">
-              <span className="text-2xl font-bold text-white">{aiData.posture}</span>
-              <p className="text-xs text-slate-500 mt-1">Driven by ML Model</p>
+              <span className="text-2xl font-bold text-[#1A5A55]">{aiData.posture}</span>
+              <p className="text-xs text-[#1A5A55]/60 mt-1 font-medium">Driven by ML Model</p>
             </div>
           </div>
           
-          <div className="bg-[#111827] border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
-            <div className="flex justify-between items-start text-sm text-slate-400">
+          <div className="bg-[#FDF7F0] border border-[#1A5A55]/20 shadow-sm p-4 rounded-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start text-sm font-semibold text-[#1A5A55]/70">
               <span>DOMINANT</span>
-              <Trophy size={16} className="text-yellow-500" />
+              <Trophy size={16} className="text-amber-500" />
             </div>
             <div className="mt-2">
-              <span className="text-2xl font-bold text-white">
+              <span className="text-2xl font-bold text-[#1A5A55]">
                 {dynamicPieData.length > 0 ? dynamicPieData.reduce((prev, current) => (prev.value > current.value) ? prev : current).name : 'Calculating...'}
               </span>
-              <p className="text-xs text-slate-500 mt-1">Most frequent posture</p>
+              <p className="text-xs text-[#1A5A55]/60 mt-1 font-medium">Most frequent posture</p>
             </div>
           </div>
 
-          <div className="bg-[#111827] border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
-            <div className="flex justify-between items-start text-sm text-slate-400">
+          <div className="bg-[#FDF7F0] border border-[#1A5A55]/20 shadow-sm p-4 rounded-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start text-sm font-semibold text-[#1A5A55]/70">
               <span>RELIEF STATUS</span>
-              <Activity size={16} className={aiData.status === 'Warning' ? "text-red-400" : "text-emerald-400"} />
+              <Activity size={16} className={aiData.status === 'Warning' ? "text-red-500" : "text-emerald-500"} />
             </div>
             <div className="mt-2">
-              <span className={`text-2xl font-bold ${aiData.status === 'Warning' ? 'text-red-500 animate-pulse' : 'text-emerald-500'}`}>
+              <span className={`text-2xl font-bold ${aiData.status === 'Warning' ? 'text-red-600 animate-pulse' : 'text-emerald-600'}`}>
                 {aiData.status}
               </span>
-              <p className="text-xs text-slate-500 mt-1">Bed sore risk level</p>
+              <p className="text-xs text-[#1A5A55]/60 mt-1 font-medium">Bed sore risk level</p>
             </div>
           </div>
 
-          <div className="bg-[#111827] border border-slate-800 p-4 rounded-xl flex flex-col justify-between">
-            <div className="flex justify-between items-start text-sm text-slate-400">
+          <div className="bg-[#FDF7F0] border border-[#1A5A55]/20 shadow-sm p-4 rounded-xl flex flex-col justify-between">
+            <div className="flex justify-between items-start text-sm font-semibold text-[#1A5A55]/70">
               <span>LIVE READINGS</span>
-              <BarChart2 size={16} className="text-blue-400" />
+              <BarChart2 size={16} className="text-blue-500" />
             </div>
             <div className="mt-2">
-              <span className="text-2xl font-bold text-white">{liveReadingsCount}</span>
-              <p className="text-xs text-slate-500 mt-1">Data points processed</p>
+              <span className="text-2xl font-bold text-[#1A5A55]">{liveReadingsCount}</span>
+              <p className="text-xs text-[#1A5A55]/60 mt-1 font-medium">Data points processed</p>
             </div>
           </div>
         </div>
@@ -206,15 +203,15 @@ const Dashboard = ({ patientId }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Live FSR Voltage Chart */}
-          <div className="bg-[#111827] border border-slate-800 p-6 rounded-xl lg:col-span-2">
-            <h3 className="text-xs font-semibold text-slate-400 tracking-wider mb-4">ESP32 SENSOR TELEMETRY (RAW VOLTAGE)</h3>
+          <div className="bg-[#FDF7F0] border border-[#1A5A55]/20 shadow-sm p-6 rounded-xl lg:col-span-2">
+            <h3 className="text-xs font-bold text-[#1A5A55]/70 tracking-wider mb-4">ESP32 SENSOR TELEMETRY (RAW VOLTAGE)</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={sensorDataStream}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="created_at" stroke="#475569" tick={false} />
-                  <YAxis stroke="#475569" domain={[0, 4095]} />
-                  <RechartsTooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', color: '#fff' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="created_at" stroke="#1A5A55" tick={false} />
+                  <YAxis stroke="#1A5A55" domain={[0, 4095]} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #1A5A55', color: '#1A5A55', borderRadius: '8px', fontWeight: 'bold' }} />
                   <Line type="monotone" dataKey="chest" stroke="#3b82f6" strokeWidth={2} dot={false} isAnimationActive={false} />
                   <Line type="monotone" dataKey="hips" stroke="#a855f7" strokeWidth={2} dot={false} isAnimationActive={false} />
                   <Line type="monotone" dataKey="left_shoulder" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -223,16 +220,16 @@ const Dashboard = ({ patientId }) => {
               </ResponsiveContainer>
             </div>
             <div className="flex justify-center space-x-6 text-xs mt-4">
-              <span className="text-blue-500 font-medium">● Chest</span>
-              <span className="text-purple-500 font-medium">● Hips</span>
-              <span className="text-emerald-500 font-medium">● Left Shoulder</span>
-              <span className="text-amber-500 font-medium">● Right Shoulder</span>
+              <span className="text-blue-600 font-bold">● Chest</span>
+              <span className="text-purple-600 font-bold">● Hips</span>
+              <span className="text-emerald-600 font-bold">● Left Shoulder</span>
+              <span className="text-amber-600 font-bold">● Right Shoulder</span>
             </div>
           </div>
 
           {/* Dynamic Posture Pie Chart */}
-          <div className="bg-[#111827] border border-slate-800 p-6 rounded-xl">
-            <h3 className="text-xs font-semibold text-slate-400 tracking-wider mb-4">ML POSTURE BREAKDOWN</h3>
+          <div className="bg-[#FDF7F0] border border-[#1A5A55]/20 shadow-sm p-6 rounded-xl">
+            <h3 className="text-xs font-bold text-[#1A5A55]/70 tracking-wider mb-4">ML POSTURE BREAKDOWN</h3>
             <div className="h-48">
               {dynamicPieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -251,13 +248,13 @@ const Dashboard = ({ patientId }) => {
                       ))}
                     </Pie>
                     <RechartsTooltip 
-                      contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#f8fafc' }}
+                      contentStyle={{ backgroundColor: '#ffffff', borderColor: '#1A5A55', color: '#1A5A55', borderRadius: '8px', fontWeight: 'bold' }}
                       formatter={(value) => `${value}%`}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+                <div className="h-full flex items-center justify-center text-[#1A5A55]/50 font-medium text-sm">
                   Waiting for ML data...
                 </div>
               )}
@@ -267,68 +264,68 @@ const Dashboard = ({ patientId }) => {
                 <div key={item.name} className="flex justify-between items-center">
                   <div className="flex items-center">
                     <span className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: item.color }}></span>
-                    <span className="text-slate-300">{item.name}</span>
+                    <span className="text-[#1A5A55] font-semibold">{item.name}</span>
                   </div>
-                  <span className="text-white font-medium">{item.value}%</span>
+                  <span className="text-[#1A5A55] font-black">{item.value}%</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* BOTTOM ROW: Live AI Engine Decisions (Replaces the Dummy Text) */}
+        {/* BOTTOM ROW: Live AI Engine Decisions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          <div className="bg-[#111c18] border border-emerald-900/50 p-6 rounded-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
+          <div className="bg-[#FDF7F0] border border-[#1A5A55]/30 p-6 rounded-xl relative overflow-hidden shadow-sm">
+            <div className="absolute top-0 right-0 p-4 opacity-5 text-[#1A5A55]">
               <BrainCircuit size={100} />
             </div>
             <div className="flex items-center mb-4">
-              <Target className="text-emerald-500 mr-3" />
-              <h3 className="text-lg font-bold text-white tracking-wide">AI PREDICTION CORE</h3>
+              <Target className="text-emerald-600 mr-3" />
+              <h3 className="text-lg font-black text-[#1A5A55] tracking-wide">AI PREDICTION CORE</h3>
             </div>
-            <p className="text-sm text-slate-400 mb-6 relative z-10">
+            <p className="text-sm text-[#1A5A55]/70 mb-6 relative z-10 font-medium">
               The Machine Learning model is analyzing the live FSR matrix and has confidently determined the patient's current alignment.
             </p>
-            <div className="bg-[#0B1120] border border-slate-800 p-6 rounded-lg text-center shadow-inner">
-              <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Live Output</p>
-              <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+            <div className="bg-white border border-[#1A5A55]/10 p-6 rounded-lg text-center shadow-inner">
+              <p className="text-xs text-[#1A5A55]/60 uppercase tracking-widest mb-2 font-bold">Live Output</p>
+              <h2 className="text-4xl font-black text-[#1A5A55]">
                 {aiData.posture}
               </h2>
             </div>
-            <div className="mt-4 text-right text-xs text-slate-500 font-mono">
+            <div className="mt-4 text-right text-xs text-[#1A5A55]/60 font-mono font-bold">
               Last Synced: {aiData.lastUpdated}
             </div>
           </div>
 
-          <div className={`p-6 rounded-xl border transition-all duration-500 relative overflow-hidden ${
+          <div className={`p-6 rounded-xl border transition-all duration-500 relative overflow-hidden shadow-sm ${
             aiData.status === 'Warning' 
-              ? 'bg-[#1a1515] border-red-900/50 shadow-[0_0_15px_rgba(220,38,38,0.15)]' 
-              : 'bg-[#111827] border-slate-800'
+              ? 'bg-red-50 border-red-300 shadow-[0_0_15px_rgba(220,38,38,0.15)]' 
+              : 'bg-[#FDF7F0] border-[#1A5A55]/30'
           }`}>
-             <div className="absolute top-0 right-0 p-4 opacity-10">
+             <div className={`absolute top-0 right-0 p-4 opacity-5 ${aiData.status === 'Warning' ? 'text-red-500' : 'text-[#1A5A55]'}`}>
               {aiData.status === 'Warning' ? <AlertTriangle size={100} /> : <CheckCircle size={100} />}
             </div>
             <div className="flex items-center mb-4">
               {aiData.status === 'Warning' ? (
-                <AlertTriangle className="text-red-500 mr-3 animate-pulse" />
+                <AlertTriangle className="text-red-600 mr-3 animate-pulse" />
               ) : (
-                <CheckCircle className="text-blue-500 mr-3" />
+                <CheckCircle className="text-blue-600 mr-3" />
               )}
-              <h3 className="text-lg font-bold text-white tracking-wide">CLINICAL RISK ASSESSMENT</h3>
+              <h3 className="text-lg font-black text-[#1A5A55] tracking-wide">CLINICAL RISK ASSESSMENT</h3>
             </div>
-            <p className="text-sm text-slate-400 mb-6 relative z-10">
+            <p className="text-sm text-[#1A5A55]/70 mb-6 relative z-10 font-medium">
               Based on the duration and pressure distribution of the current posture, the system evaluates the risk of pressure ulcer formation.
             </p>
-            <div className="bg-[#0B1120] border border-slate-800 p-6 rounded-lg text-center shadow-inner">
-               <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">System Status</p>
+            <div className="bg-white border border-[#1A5A55]/10 p-6 rounded-lg text-center shadow-inner">
+               <p className="text-xs text-[#1A5A55]/60 uppercase tracking-widest mb-2 font-bold">System Status</p>
                <h2 className={`text-3xl font-black tracking-wider ${
-                  aiData.status === 'Warning' ? 'text-red-500 animate-pulse' : 'text-emerald-500'
+                 aiData.status === 'Warning' ? 'text-red-600 animate-pulse' : 'text-emerald-600'
                }`}>
                  {aiData.status.toUpperCase()}
                </h2>
             </div>
-             <div className="mt-4 text-right text-xs text-slate-500 font-mono">
+             <div className="mt-4 text-right text-xs text-[#1A5A55]/60 font-mono font-bold">
               Automated Monitor Active
             </div>
           </div>
